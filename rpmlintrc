@@ -1,0 +1,27 @@
+# GUI app; upstream ships no man page, and the desktop metadata + doc-free
+# payload are intentional for this COPR rewrap.
+addFilter("no-manual-page-for-binary")
+addFilter("no-documentation")
+# "rewraps" and "prebuilt" appear in %description; rpmlint's dictionary has
+# no entry for them.
+addFilter("spelling-error .*rewraps")
+addFilter("spelling-error .*prebuilt")
+# The prebuilt upstream binaries carry .symtab (unstripped) by design; see
+# the rationale next to %global debug_package %{nil} in specs/bitwarden.spec.
+addFilter("unstripped-binary-or-object")
+# /opt/Bitwarden is the upstream Electron layout; the blob must ship with
+# its paths intact (COPR-only rewrap, never eligible for official Fedora).
+addFilter("dir-or-file-in-opt")
+# The bundled libs resolve each other via $ORIGIN (bitwarden-app RPATH,
+# libffmpeg RUNPATH); required for the app to find its private libs.
+addFilter("binary-or-shlib-defines-rpath")
+# The upstream-declared runtime deps libnotify and libXScrnSaver appear in
+# no DT_NEEDED, so the generator cannot see them; kept at parity with the
+# upstream RPM for notifications/idle behavior (see Requires in the spec).
+addFilter("explicit-lib-dependency")
+# chrome-sandbox ships mode 0755 (not setuid) and runs via user namespaces;
+# the setgroups finding is pattern-based and does not apply.
+addFilter("missing-call-to-setgroups-before-setuid")
+# Chromium's network stack still calls gethostbyname (legacy IPv4 path);
+# inherent to the prebuilt Electron blob.
+addFilter("binary-or-shlib-calls-gethostbyname")
