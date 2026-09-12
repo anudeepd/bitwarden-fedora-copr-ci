@@ -1,12 +1,35 @@
-# Prebuilt foreign binary: no build-id or debuginfo can be produced, and
-# disabling the debug package also skips brp-strip, which would otherwise
-# rewrite the upstream blob. The binary ships as-is from the release RPM.
+# Prebuilt foreign binary: no build-id or debuginfo can be produced, so the
+# debug package is disabled. The binary ships as-is from the release RPM.
 %global debug_package %{nil}
+
+# NOTE (verified by local rpmbuild of 2026.8.0): %%global debug_package %%{nil}
+# is what makes the default ELF-rewriting brp hooks run, not what skips them
+# — Fedora's %%__os_install_post gates brp-strip / brp-strip-comment-note on
+# %%__debug_package being *undefined*. With them in place every ELF file in
+# the bundle gets rewritten (measured: all eleven, e.g. bitwarden-app -528
+# bytes, desktop_proxy -252760, libprocess_isolation.so -206256,
+# libvulkan.so.1 -1685512, desktop_napi.linux-x64-gnu.node -635776), so the
+# packaged payload stops being byte-identical to the upstream RPM.
+# brp-strip-lto and brp-strip-static-archive are not gated at all. Empty all
+# four so the payload matches the upstream blob bit for bit. Set them to
+# %%{nil} rather than %%undefine'ing them: with rpm 6.0.2 %%undefine does not
+# mask brp-strip / brp-strip-comment-note (the hooks still ran, while
+# %%undefine on the lto one did take effect).
+%global __brp_strip %{nil}
+%global __brp_strip_comment_note %{nil}
+%global __brp_strip_lto %{nil}
+%global __brp_strip_static_archive %{nil}
+
+# brp-mangle-shebangs is not an ELF hook but rewrites payload bytes just the
+# same, and this repo — unlike equibop — ships a shell script under /opt: the
+# /opt/Bitwarden/bitwarden launcher starts with #!/bin/sh, which the hook
+# rewrites to #!/usr/bin/sh (+4 bytes), breaking byte-identity on its own (it
+# is the only shebang in the payload). Unset it as well.
+%global __brp_mangle_shebangs %{nil}
 
 # add-determinism's brp hook (add-det) would regenerate /usr/lib/.build-id
 # links from the blob's ELF build-id notes and otherwise normalize the
-# payload. The blob must ship byte-identical, so unset the hook (consistent
-# with %%global debug_package %%{nil} above).
+# payload. The blob must ship byte-identical, so unset the hook.
 %undefine __brp_add_determinism
 
 # The bundled Chromium libs under /opt/Bitwarden carry SONAMEs, so the
@@ -107,5 +130,11 @@ appstreamcli validate --no-net %{buildroot}%{_metainfodir}/com.bitwarden.desktop
 # %%changelog entry — Release bumps automatically and the NVR stays unique.
 
 %changelog
+* Sat Sep 12 2026 Anudeep D <anudeepd2@gmail.com> - 2026.8.0-2
+- Keep the packaged payload byte-identical: unset Fedora's ELF-rewriting brp
+  hooks (brp-strip, brp-strip-comment-note, brp-strip-lto,
+  brp-strip-static-archive) which drop .comment from every bundled binary
+- Also unset brp-mangle-shebangs: it rewrote the bundle's
+  /opt/Bitwarden/bitwarden launcher from #!/bin/sh to #!/usr/bin/sh
 * Sun Sep 06 2026 Anudeep D <anudeepd2@gmail.com> - 2026.8.0-1
 - Initial Fedora repackaging of upstream prebuilt RPM

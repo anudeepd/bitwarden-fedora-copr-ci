@@ -57,6 +57,22 @@ jobs:
           spectool -g -R bitwarden.spec
           rpmbuild -ba bitwarden.spec 2>&1 | tail -15
           ls -lh $HOME/rpmbuild/RPMS/x86_64/
+      - name: Verify the blob is byte-identical to the upstream RPM
+        run: |
+          # The spec's contract is that /opt/Bitwarden ships exactly as upstream
+          # published it. Fedora's default brp hooks (brp-strip,
+          # brp-strip-comment-note, …) rewrite any ELF they see, so a silent
+          # macro change would otherwise only show up as a different binary.
+          upstream=$(ls $HOME/rpmbuild/SOURCES/Bitwarden-*-x86_64.rpm | head -1)
+          built=$(ls $HOME/rpmbuild/RPMS/x86_64/bitwarden-*.rpm | grep -v debug | head -1)
+          rm -rf /tmp/payload-upstream /tmp/payload-built
+          mkdir -p /tmp/payload-upstream /tmp/payload-built
+          (cd /tmp/payload-upstream && rpm2cpio "$upstream" | cpio -idm --quiet)
+          (cd /tmp/payload-built && rpm2cpio "$built" | cpio -idm --quiet)
+          # diff exits non-zero and prints the differing files if anything in
+          # the bundle was rewritten.
+          diff -r /tmp/payload-upstream/opt /tmp/payload-built/opt
+          echo "### Blob is byte-identical to the upstream RPM :heavy_check_mark:" >> $GITHUB_STEP_SUMMARY
       - name: Inspect built RPM Requires
         run: |
           rpm_file=$(ls $HOME/rpmbuild/RPMS/x86_64/bitwarden-*.x86_64.rpm | grep -v debug | head -1)

@@ -37,10 +37,19 @@ Everything else follows the guidelines:
   per the repo's `LICENSE.txt`. Nothing else is bundled: upstream payload
   plus license and curated metainfo.
 - `%global debug_package %{nil}` with an explicit rationale: the prebuilt
-  foreign binary cannot produce debuginfo, and disabling the debug package
-  also skips `brp-strip`, which would otherwise rewrite the upstream blob.
-  The `add-det` brp hook is disabled for the same reason: the blob must ship
-  byte-identical.
+  foreign binary cannot produce debuginfo, so the debug package is meaningless
+  for a rewrap. Note that this is what *enables* Fedora's ELF-rewriting brp
+  hooks rather than skipping them: `%__os_install_post` gates `brp-strip` and
+  `brp-strip-comment-note` on `%__debug_package` being undefined, and with
+  them active the bundle's ELF files get rewritten (measured: all eleven,
+  e.g. `bitwarden-app` -528 bytes, `libvulkan.so.1` -1685512 — comment and
+  symbol sections dropped).
+  `brp-strip-lto` and `brp-strip-static-archive` are not gated at all. All
+  four hooks are emptied in the spec, along with `add-det` and
+  `brp-mangle-shebangs` (it rewrites the bundle's `#!/bin/sh` launcher to
+  `#!/usr/bin/sh`), so the payload ships byte-identical — and the RPM build
+  test workflow diffs the packaged `/opt/Bitwarden` tree against the upstream
+  RPM payload to keep it that way.
 - One minimal, documented transformation: upstream ships no `/usr/bin`
   entry (`Exec=` points at `/opt` directly), so the spec adds a single
   `/usr/bin/bitwarden` symlink so the app is on PATH. Safe by upstream's

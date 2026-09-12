@@ -25,3 +25,8 @@ addFilter("missing-call-to-setgroups-before-setuid")
 # Chromium's network stack still calls gethostbyname (legacy IPv4 path);
 # inherent to the prebuilt Electron blob.
 addFilter("binary-or-shlib-calls-gethostbyname")
+# The spec unsets brp-mangle-shebangs so the bundle ships byte-identical,
+# which leaves upstream's /opt/Bitwarden/bitwarden launcher with its original
+# #!/bin/sh shebang. checkbashisms then flags the POSIX `ulimit -c 0` in that
+# upstream wrapper as a possible bashism — the script is not ours.
+addFilter("potential-bashisms /opt/Bitwarden/bitwarden")
