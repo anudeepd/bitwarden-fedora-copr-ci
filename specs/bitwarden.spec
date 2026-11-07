@@ -42,8 +42,17 @@
 # RPATH). Nothing in Fedora provides it, and the bundle satisfies it
 # internally, so exclude it. The generated require string carries the arch
 # qualifier (libffmpeg.so()(64bit)), hence the prefix match without $.
-# Every other DT_NEEDED entry is a system library and stays auto-detected.
-%global __requires_exclude ^libffmpeg\.so
+#
+# utf-8-validate ships two prebuilt Node modules:
+#   .../utf-8-validate.node       (glibc, the one loaded on Fedora)
+#   .../utf-8-validate.musl.node  (musl, never loaded on Fedora)
+# The dependency generator scans both and adds
+#   libc.musl-x86_64.so.1()(64bit)
+# for the musl module. Fedora's musl-libc provides ld-musl-x86_64.so.1, not
+# that SONAME, so the require is unsatisfiable and blocks the whole package
+# even though the module is dead weight on glibc. Exclude it; the glibc
+# module and every other DT_NEEDED entry stay auto-detected.
+%global __requires_exclude ^(libffmpeg\.so|libc\.musl)
 
 Name:           bitwarden
 Version:        2026.8.0
@@ -118,6 +127,16 @@ ln -s /opt/Bitwarden/bitwarden %{buildroot}%{_bindir}/bitwarden
 desktop-file-validate %{buildroot}%{_datadir}/applications/bitwarden.desktop
 appstreamcli validate --no-net %{buildroot}%{_metainfodir}/com.bitwarden.desktop.metainfo.xml
 
+%post
+# The packaged chrome-sandbox is 0755 and uses user namespaces. Mirror
+# upstream's post-install handling: only switch to a SUID sandbox on systems
+# where user namespaces are unavailable. The file content is untouched.
+if [ -L /proc/self/ns/user ] && unshare --user true 2>/dev/null; then
+    chmod 0755 /opt/Bitwarden/chrome-sandbox || true
+else
+    chmod 4755 /opt/Bitwarden/chrome-sandbox || true
+fi
+
 %files
 %license LICENSE_GPL.txt
 %{_bindir}/bitwarden
@@ -137,6 +156,13 @@ appstreamcli validate --no-net %{buildroot}%{_metainfodir}/com.bitwarden.desktop
 # release), exactly as the earlier forced builds in these projects did.
 
 %changelog
+* Sat Nov 07 2026 Anudeep D <anudeepd2@gmail.com> - 2026.8.0-3
+- Exclude the auto-generated libc.musl-x86_64.so.1 requirement from the
+  bundled utf-8-validate.musl.node prebuild: Fedora loads the glibc module,
+  and musl-libc does not provide that SONAME, so the require made the
+  package uninstallable (seen with 2026.10.4)
+- Mirror upstream's chrome-sandbox handling in the post-install scriptlet:
+  keep 0755 when user namespaces work, use 4755 only when they do not
 * Sat Sep 12 2026 Anudeep D <anudeepd2@gmail.com> - 2026.8.0-2
 - Keep the packaged payload byte-identical: unset Fedora's ELF-rewriting brp
   hooks (brp-strip, brp-strip-comment-note, brp-strip-lto,

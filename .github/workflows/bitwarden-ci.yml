@@ -166,6 +166,7 @@ jobs:
           VERSION: ${{ needs.GetLatestVersion.outputs.VERSION }}
           VERSION_NO_V: ${{ needs.GetLatestVersion.outputs.VERSION_NO_V }}
         run: |
+          set -o pipefail
           rpmdev-setuptree
           # Force builds get a unique Release so we never collide with an
           # existing NVR in COPR (duplicate NVRs desync repodata from the
@@ -222,6 +223,18 @@ jobs:
           fi
           echo "Checksum OK for $VERSION_NO_V (matches upstream latest-linux.yml)"
           rpmbuild -bs bitwarden.spec
+          # Build the binary RPM once locally and reject unsatisfiable
+          # auto-generated requires before submitting. COPR would publish a
+          # package that dnf cannot install (e.g. the libc.musl-x86_64.so.1
+          # require from utf-8-validate.musl.node).
+          rpmbuild -bb bitwarden.spec 2>&1 | tail -15
+          rpm_file=$(ls $HOME/rpmbuild/RPMS/x86_64/bitwarden-*.x86_64.rpm | grep -v debug | head -1)
+          echo "=== Built RPM: $rpm_file ==="
+          rpm -qpR "$rpm_file"
+          if rpm -qpR "$rpm_file" | grep -q 'libc\.musl'; then
+            echo "ERROR: auto-generated musl requirement leaked into the package"
+            exit 1
+          fi
           SRPM=$(ls $HOME/rpmbuild/SRPMS/bitwarden-*.src.rpm | head -1)
           echo "Submitting $SRPM to COPR"
           copr-cli build --nowait ${{ env.COPR_PROJECT }} "$SRPM"

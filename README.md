@@ -23,11 +23,12 @@ Everything else follows the guidelines:
 - `rpmlint` runs in CI on the built RPM with **0 errors, 0 warnings**:
   every flagged pattern is inherent to rewrapping the Electron blob
   (the `/opt` layout, required `$ORIGIN` RPATHs, unstripped prebuilt
-  binaries, the non-setuid `chrome-sandbox` tripping the setgroups pattern,
-  Chromium's legacy `gethostbyname` call, dictionary misses, GUI app
-  without man page, docs not bundled by design, and the two
-  upstream-declared lib deps invisible to the generator) and is filtered
-  in `rpmlintrc` with per-filter rationales.
+  binaries, the packaged non-setuid `chrome-sandbox` tripping the setgroups
+  pattern — the post-install scriptlet only makes it SUID when user
+  namespaces are unavailable — Chromium's legacy `gethostbyname` call,
+  dictionary misses, GUI app without man page, docs not bundled by design,
+  and the two upstream-declared lib deps invisible to the generator) and is
+  filtered in `rpmlintrc` with per-filter rationales.
 - `%{_bindir}`, `%{_datadir}`, `%{_metainfodir}` macros used in `%files`.
 - License provenance: the GPL license text is fetched from the upstream
   release tag by `spectool` (the prebuilt RPM ships only Electron/Chromium
@@ -65,16 +66,34 @@ Everything else follows the guidelines:
   what the generator cannot see: `xdg-utils` (shelled out to at runtime),
   `libnotify` and `libXScrnSaver` (upstream-declared, loaded indirectly),
   and upstream's distro-alternative deps `(libXtst or libXtst6)` and
-  `(libuuid or libuuid1)`. Two generator exclusions, both documented in the
+  `(libuuid or libuuid1)`. Three generator exclusions, all documented in the
   spec: `Provides` from `/opt/Bitwarden` are suppressed (bundled Chromium
-  libs carry SONAMEs but are private, resolved via `$ORIGIN`), and the
+  libs carry SONAMEs but are private, resolved via `$ORIGIN`), the
   `libffmpeg.so` requirement is excluded (bundled lib satisfied in-bundle
-  via the same `$ORIGIN` RPATH). No network access inside the buildroot.
+  via the same `$ORIGIN` RPATH), and the `libc.musl-x86_64.so.1` requirement
+  is excluded (the bundled `utf-8-validate.musl.node` is never loaded on
+  Fedora's glibc; Fedora's `musl-libc` does not provide that SONAME, so the
+  auto-generated require made the package uninstallable). No network access
+  inside the buildroot.
 - The downloaded RPM is verified against the sha512 published for that
   asset in the upstream release's `latest-linux.yml` before submission to
   COPR. Note this is same-origin integrity (guards corruption/mismatch, not
   a signing boundary): upstream publishes no detached checksums or
   signatures for the RPM.
+
+## COPR-specific caveats
+
+- **Third-party rewrap.** This is a COPR project, not an official Bitwarden
+  or Fedora build. CI verifies the downloaded upstream RPM against the
+  SHA512 published in the upstream release's `latest-linux.yml` before
+  submission, and COPR signs the built package, but the trust root is this
+  COPR project.
+- **Repository metadata is not signed.** COPR does not publish
+  `repomd.xml.asc`, so the generated repo file uses `repo_gpgcheck=0`.
+  Individual package signatures are still verified (`gpgcheck=1`).
+- **Do not mix with the upstream RPM.** The COPR build's release
+  (`1.fc44`) sorts higher than the upstream RPM's (`1`), so dnf will prefer
+  the COPR build if both sources are enabled. Use one or the other.
 
 # Instructions
 

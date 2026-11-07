@@ -28,7 +28,7 @@ jobs:
       - name: Mark workspace safe for git
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Install dependencies
-        run: sudo dnf install -y -q git gawk jq curl rpm-build rpmdevtools cpio desktop-file-utils appstream rpmlint
+        run: sudo dnf install -y -q git gawk jq curl python3 rpm-build rpmdevtools cpio desktop-file-utils appstream rpmlint
       - name: Get latest desktop version
         id: step_version
         run: |
@@ -46,6 +46,7 @@ jobs:
           appstreamcli validate --no-net sources/com.bitwarden.desktop.metainfo.xml
       - name: Build RPM locally
         run: |
+          set -o pipefail
           rpmdev-setuptree
           VERSION_NO_V="${{ steps.step_version.outputs.VERSION_NO_V }}"
           # spectool fetches the upstream RPM (Source0) and the GPL license
@@ -55,6 +56,39 @@ jobs:
           cp specs/bitwarden.spec $HOME/rpmbuild/SPECS/
           cd $HOME/rpmbuild/SPECS
           spectool -g -R bitwarden.spec
+          # Integrity check: the downloaded RPM must match the sha512
+          # published for that asset in the upstream release's
+          # latest-linux.yml. Same-origin integrity only: upstream publishes
+          # no detached checksums or signatures for the RPM.
+          RPM_PATH=$(ls "$HOME"/rpmbuild/SOURCES/Bitwarden-*-x86_64.rpm | head -1)
+          RPM_FILE=${RPM_PATH##*/}
+          UPSTREAM_YML=$(curl -fsSL "https://github.com/$REPO_DEV/$REPO_NAME/releases/download/desktop-v${{ steps.step_version.outputs.VERSION_NO_V }}/latest-linux.yml")
+          EXPECTED_B64=$(printf '%s\n' "$UPSTREAM_YML" | python3 -c "
+          import sys
+          want = sys.argv[1]
+          url = None
+          for line in sys.stdin:
+              s = line.strip()
+              if s.startswith('-'):
+                  s = s[1:].strip()
+              if s.startswith('url:'):
+                  url = s.split(':', 1)[1].strip()
+              elif s.startswith('sha512:') and url == want:
+                  print(s.split(':', 1)[1].strip())
+                  break
+          " "$RPM_FILE")
+          if [ -z "$EXPECTED_B64" ]; then
+            echo "ERROR: no sha512 for $RPM_FILE in upstream latest-linux.yml"
+            exit 1
+          fi
+          ACTUAL_B64=$(python3 -c "import hashlib,base64,sys; print(base64.b64encode(hashlib.sha512(open(sys.argv[1],'rb').read()).digest()).decode())" "$RPM_PATH")
+          if [ "$EXPECTED_B64" != "$ACTUAL_B64" ]; then
+            echo "ERROR: checksum mismatch for $RPM_FILE"
+            echo "upstream: $EXPECTED_B64"
+            echo "actual:   $ACTUAL_B64"
+            exit 1
+          fi
+          echo "Checksum OK for $RPM_FILE"
           rpmbuild -ba bitwarden.spec 2>&1 | tail -15
           ls -lh $HOME/rpmbuild/RPMS/x86_64/
       - name: Verify the blob is byte-identical to the upstream RPM
@@ -79,6 +113,10 @@ jobs:
           echo "=== Built RPM: $rpm_file ==="
           rpm -qpR "$rpm_file"
           echo "REQUIRES_OUTPUT_END"
+          if rpm -qpR "$rpm_file" | grep -q 'libc\.musl'; then
+            echo "ERROR: auto-generated musl requirement leaked into the package"
+            exit 1
+          fi
       - name: Validate packaged desktop and AppStream metadata
         run: |
           rpm_file=$(ls $HOME/rpmbuild/RPMS/x86_64/bitwarden-*.x86_64.rpm | grep -v debug | head -1)
@@ -100,9 +138,20 @@ jobs:
           rpmlint -r "$GITHUB_WORKSPACE/rpmlintrc" "$rpm_file"
       - name: Install-test the rebuilt RPM
         run: |
+          set -o pipefail
           rpm_file=$(ls $HOME/rpmbuild/RPMS/x86_64/bitwarden-*.x86_64.rpm | grep -v debug | head -1)
           echo "=== Installing $rpm_file (expect gtk/nss/alsa/cups libs pulled) ==="
           dnf in -y "$rpm_file" 2>&1 | tail -30
           rpm -q bitwarden
-          rpm -V bitwarden
+          # The post-install scriptlet may chmod chrome-sandbox to 4755 on
+          # systems without user namespaces; verify everything else but
+          # ignore that expected mode delta.
+          rpm -V --nomode bitwarden
+          mode=$(stat -c '%a' /opt/Bitwarden/chrome-sandbox)
+          case "$mode" in
+            755|4755) ;;
+            *) echo "ERROR: unexpected chrome-sandbox mode: $mode"; exit 1 ;;
+          esac
+          test -L /usr/bin/bitwarden
+          readlink -f /usr/bin/bitwarden | grep -qx /opt/Bitwarden/bitwarden
           echo "### Install test passed :heavy_check_mark:" >> $GITHUB_STEP_SUMMARY

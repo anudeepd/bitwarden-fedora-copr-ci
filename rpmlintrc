@@ -20,8 +20,14 @@ addFilter("binary-or-shlib-defines-rpath")
 # upstream RPM for notifications/idle behavior (see Requires in the spec).
 addFilter("explicit-lib-dependency")
 # chrome-sandbox ships mode 0755 (not setuid) and runs via user namespaces;
-# the setgroups finding is pattern-based and does not apply.
+# the post-install scriptlet mirrors upstream and only chmods it to 4755
+# when user namespaces are unavailable. The setgroups finding is
+# pattern-based and does not apply.
 addFilter("missing-call-to-setgroups-before-setuid")
+# The %post scriptlet intentionally chmods /opt/Bitwarden/chrome-sandbox to
+# mirror upstream's conditional SUID handling; the command is guarded and
+# scoped to the bundled file, not a package-manager operation.
+addFilter("dangerous-command-in-%post")
 # Chromium's network stack still calls gethostbyname (legacy IPv4 path);
 # inherent to the prebuilt Electron blob.
 addFilter("binary-or-shlib-calls-gethostbyname")
