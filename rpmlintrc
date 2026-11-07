@@ -12,6 +12,13 @@ addFilter("unstripped-binary-or-object")
 # /opt/Bitwarden is the upstream Electron layout; the blob must ship with
 # its paths intact (COPR-only rewrap, never eligible for official Fedora).
 addFilter("dir-or-file-in-opt")
+# The upstream bundle ships Node module sources, duplicate shims and
+# dotfiles under /opt/Bitwarden (bufferutil, utf-8-validate, jszip). They are
+# part of the byte-identical upstream payload, not development files or
+# system configuration.
+addFilter("devel-file-in-non-devel-package")
+addFilter("files-duplicate")
+addFilter("hidden-file-or-dir")
 # The bundled libs resolve each other via $ORIGIN (bitwarden-app RPATH,
 # libffmpeg RUNPATH); required for the app to find its private libs.
 addFilter("binary-or-shlib-defines-rpath")

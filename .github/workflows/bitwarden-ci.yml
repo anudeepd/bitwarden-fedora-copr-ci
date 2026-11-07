@@ -64,6 +64,9 @@ jobs:
         run: |
           version_no_v="${{ needs.GetLatestVersion.outputs.VERSION_NO_V }}"
           sed -i "s/^Version:.*/Version:        ${version_no_v}/" specs/bitwarden.spec
+          # Keep the top changelog entry coherent with the patched Version so
+          # rpmlint's incoherent-version-in-changelog check stays clean.
+          sed -i -E "0,/^(\* .* - )[0-9][0-9.]*-[0-9]+$/s//\1${version_no_v}-1/" specs/bitwarden.spec
           sed -i "s|<release version=\"[^\"]*\" date=\"[^\"]*\"|<release version=\"${version_no_v}\" date=\"$(date +%F)\"|" sources/com.bitwarden.desktop.metainfo.xml
           head -12 specs/bitwarden.spec
       - name: Validate curated AppStream metadata

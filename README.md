@@ -23,12 +23,13 @@ Everything else follows the guidelines:
 - `rpmlint` runs in CI on the built RPM with **0 errors, 0 warnings**:
   every flagged pattern is inherent to rewrapping the Electron blob
   (the `/opt` layout, required `$ORIGIN` RPATHs, unstripped prebuilt
-  binaries, the packaged non-setuid `chrome-sandbox` tripping the setgroups
-  pattern — the post-install scriptlet only makes it SUID when user
-  namespaces are unavailable — Chromium's legacy `gethostbyname` call,
-  dictionary misses, GUI app without man page, docs not bundled by design,
-  and the two upstream-declared lib deps invisible to the generator) and is
-  filtered in `rpmlintrc` with per-filter rationales.
+  binaries, bundled Node module sources/dotfiles/duplicate shims, the
+  packaged non-setuid `chrome-sandbox` tripping the setgroups pattern — the
+  post-install scriptlet only makes it SUID when user namespaces are
+  unavailable — Chromium's legacy `gethostbyname` call, dictionary misses,
+  GUI app without man page, docs not bundled by design, and the two
+  upstream-declared lib deps invisible to the generator) and is filtered
+  in `rpmlintrc` with per-filter rationales.
 - `%{_bindir}`, `%{_datadir}`, `%{_metainfodir}` macros used in `%files`.
 - License provenance: the GPL license text is fetched from the upstream
   release tag by `spectool` (the prebuilt RPM ships only Electron/Chromium
