@@ -23,8 +23,7 @@ Everything else follows the guidelines:
 - `rpmlint` runs in CI on the built RPM with **0 errors, 0 warnings**:
   every flagged pattern is inherent to rewrapping the Electron blob
   (the `/opt` layout, required `$ORIGIN` RPATHs, unstripped prebuilt
-  binaries, bundled Node module sources/dotfiles/duplicate shims, the
-  packaged non-setuid `chrome-sandbox` tripping the setgroups pattern — the
+  binaries, the packaged non-setuid `chrome-sandbox` tripping the setgroups pattern — the
   post-install scriptlet only makes it SUID when user namespaces are
   unavailable — Chromium's legacy `gethostbyname` call, dictionary misses,
   GUI app without man page, docs not bundled by design, and the two
@@ -51,7 +50,9 @@ Everything else follows the guidelines:
   `brp-mangle-shebangs` (it rewrites the bundle's `#!/bin/sh` launcher to
   `#!/usr/bin/sh`), so the payload ships byte-identical — and the RPM build
   test workflow diffs the packaged `/opt/Bitwarden` tree against the upstream
-  RPM payload to keep it that way.
+  RPM payload to keep it that way. Upstream's 2026.11.0 RPM shipped the payload
+  world-writable, so `%install` normalizes the file modes to 0644 for regular
+  files and 0755 for executables without changing any content.
 - One minimal, documented transformation: upstream ships no `/usr/bin`
   entry (`Exec=` points at `/opt` directly), so the spec adds a single
   `/usr/bin/bitwarden` symlink so the app is on PATH. Safe by upstream's

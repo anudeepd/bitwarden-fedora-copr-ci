@@ -113,6 +113,12 @@ cp %{SOURCE1} LICENSE_GPL.txt
 %install
 cp -a opt %{buildroot}/
 cp -a usr %{buildroot}/
+# Upstream's 2026.11.0 RPM ships most of the /opt payload as 0666/0777 (a
+# build umask regression). Normalize the modes so the package installs no
+# world-writable file; the contents stay byte-identical to the upstream RPM.
+find %{buildroot}/opt -type d -exec chmod 0755 {} +
+find %{buildroot}/opt -type f -perm /111 -exec chmod 0755 {} +
+find %{buildroot}/opt -type f ! -perm /111 -exec chmod 0644 {} +
 install -Dm0644 %{SOURCE2} %{buildroot}%{_metainfodir}/com.bitwarden.desktop.metainfo.xml
 # Upstream ships no /usr/bin entry (Exec= points at /opt directly). Add one
 # symlink so `bitwarden` is on PATH. Safe by upstream's own design: the
@@ -159,6 +165,10 @@ fi
 * Sat Nov 21 2026 Anudeep D <anudeepd2@gmail.com> - 2026.8.0-4
 - Follow upstream's 2026.11.0 release asset rename: the open-source build is
   published as oss-Bitwarden-*.rpm with oss-latest-linux.yml metadata
+- Normalize the 0666/0777 file modes in upstream's 2026.11.0 payload to
+  0644/0755; the contents stay byte-identical
+- Drop rpmlint filters for the jszip and bufferutil sources that upstream no
+  longer unpacks under /opt
 * Sat Nov 07 2026 Anudeep D <anudeepd2@gmail.com> - 2026.8.0-3
 - Exclude the auto-generated libc.musl-x86_64.so.1 requirement from the
   bundled utf-8-validate.musl.node prebuild: Fedora loads the glibc module,
