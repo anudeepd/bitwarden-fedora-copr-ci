@@ -30,6 +30,13 @@ Everything else follows the guidelines:
   upstream-declared lib deps invisible to the generator) and is filtered
   in `rpmlintrc` with per-filter rationales.
 - `%{_bindir}`, `%{_datadir}`, `%{_metainfodir}` macros used in `%files`.
+- Build flavor: upstream publishes two desktop builds from the same tag.
+  `oss-` uses the open-source SDK and GPL-3.0 code. `bit-` compiles the
+  `bitwarden_license` entry points and links the commercial SDK. The
+  [Bitwarden License v1.0](https://github.com/bitwarden/clients/blob/main/LICENSE_BITWARDEN.txt)
+  covers the commercial modules and permits internal development and testing
+  only, not redistribution. This repo packages the `oss-` build so the COPR
+  package stays redistributable under GPL-3.0-only.
 - License provenance: the GPL license text is fetched from the upstream
   release tag by `spectool` (the prebuilt RPM ships only Electron/Chromium
   notices); a fetch failure fails the build, so the packaged license always
