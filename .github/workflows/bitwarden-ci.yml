@@ -188,18 +188,21 @@ jobs:
           spectool -g -R bitwarden.spec
           # Integrity check: the downloaded RPM must match the sha512
           # published for that asset in the upstream release's
-          # latest-linux.yml (electron-builder update metadata).
+          # oss-latest-linux.yml (electron-builder update metadata).
           # NOTE: same-origin integrity only — it guards against truncated
           # or mismatched downloads, not a signing boundary: upstream
           # publishes no detached checksums or signatures for the RPM.
           # spectool downloads Source0 under its URL basename; derive the name
           # from the downloaded file rather than assuming the asset convention.
-          RPM_PATH=$(ls "$HOME"/rpmbuild/SOURCES/Bitwarden-*-x86_64.rpm | head -1)
+          RPM_PATH=$(ls "$HOME"/rpmbuild/SOURCES/oss-Bitwarden-*-x86_64.rpm | head -1)
           RPM_FILE=${RPM_PATH##*/}
-          UPSTREAM_YML=$(curl -fsSL "https://github.com/$REPO_DEV/$REPO_NAME/releases/download/$VERSION/latest-linux.yml")
+          UPSTREAM_YML=$(curl -fsSL "https://github.com/$REPO_DEV/$REPO_NAME/releases/download/$VERSION/oss-latest-linux.yml")
           EXPECTED_B64=$(printf '%s\n' "$UPSTREAM_YML" | python3 -c "
           import sys
-          want = sys.argv[1]
+          # Upstream prefixes release assets with the license since 2026.11.0
+          # (oss- for the open-source build), but the urls inside the update
+          # metadata stay unprefixed.
+          want = sys.argv[1].removeprefix('oss-')
           url = None
           for line in sys.stdin:
               # List items are '- url: <file>' followed by 'sha512: <b64>';
@@ -214,7 +217,7 @@ jobs:
                   break
           " "$RPM_FILE")
           if [ -z "$EXPECTED_B64" ]; then
-            echo "ERROR: no sha512 for $RPM_FILE in upstream latest-linux.yml for $VERSION"
+            echo "ERROR: no sha512 for $RPM_FILE in upstream oss-latest-linux.yml for $VERSION"
             exit 1
           fi
           ACTUAL_B64=$(python3 -c "import hashlib,base64,sys; print(base64.b64encode(hashlib.sha512(open(sys.argv[1],'rb').read()).digest()).decode())" "$RPM_PATH")
@@ -224,7 +227,7 @@ jobs:
             echo "actual:   $ACTUAL_B64"
             exit 1
           fi
-          echo "Checksum OK for $VERSION_NO_V (matches upstream latest-linux.yml)"
+          echo "Checksum OK for $VERSION_NO_V (matches upstream oss-latest-linux.yml)"
           rpmbuild -bs bitwarden.spec
           # Build the binary RPM once locally and reject unsatisfiable
           # auto-generated requires before submitting. COPR would publish a

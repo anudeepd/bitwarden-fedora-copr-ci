@@ -62,7 +62,7 @@ License:        GPL-3.0-only
 URL:            https://bitwarden.com
 ExclusiveArch:  x86_64
 
-Source0:        https://github.com/bitwarden/clients/releases/download/desktop-v%{version}/Bitwarden-%{version}-x86_64.rpm
+Source0:        https://github.com/bitwarden/clients/releases/download/desktop-v%{version}/oss-Bitwarden-%{version}-x86_64.rpm
 # Upstream prebuilt RPM ships no GPL text (only Electron/Chromium notices
 # under /opt). spectool fetches LICENSE_GPL.txt for the exact version being
 # packaged from the release tag; a failed fetch fails the build, so the
@@ -156,6 +156,9 @@ fi
 # release), exactly as the earlier forced builds in these projects did.
 
 %changelog
+* Sat Nov 21 2026 Anudeep D <anudeepd2@gmail.com> - 2026.8.0-4
+- Follow upstream's 2026.11.0 release asset rename: the open-source build is
+  published as oss-Bitwarden-*.rpm with oss-latest-linux.yml metadata
 * Sat Nov 07 2026 Anudeep D <anudeepd2@gmail.com> - 2026.8.0-3
 - Exclude the auto-generated libc.musl-x86_64.so.1 requirement from the
   bundled utf-8-validate.musl.node prebuild: Fedora loads the glibc module,
