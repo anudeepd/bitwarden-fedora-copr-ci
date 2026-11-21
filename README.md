@@ -2,7 +2,7 @@
 
 [Bitwarden](https://github.com/bitwarden/clients) is a secure and free password manager for all of your devices.
 
-This repo packages Bitwarden Desktop for Fedora by rewrapping the upstream prebuilt Linux RPM (`Bitwarden-X.Y.Z-x86_64.rpm`) with a Fedora spec. Currently x86_64 only, matching upstream's prebuilt release artifacts. A GitHub Actions workflow runs daily at 12AM UTC to check the latest `desktop-v*` release from https://github.com/bitwarden/clients (a monorepo, so tags are filtered by the `desktop-v` prefix) and rebuilds COPR only when a new version is published. The downloaded RPM is verified against the sha512 published for that asset in the upstream release's `latest-linux.yml` before submission.
+This repo packages Bitwarden Desktop for Fedora by rewrapping the upstream open-source prebuilt Linux RPM (`oss-Bitwarden-X.Y.Z-x86_64.rpm`) with a Fedora spec. Upstream renamed its release assets in 2026.11.0, prefixing the commercial build with `bit-` and the open-source build with `oss-`; older releases keep the unprefixed names. Currently x86_64 only, matching upstream's prebuilt release artifacts. A GitHub Actions workflow runs daily at 12AM UTC to check the latest `desktop-v*` release from https://github.com/bitwarden/clients (a monorepo, so tags are filtered by the `desktop-v` prefix) and rebuilds COPR only when a new version is published. The downloaded RPM is verified against the sha512 published for that asset in the upstream release's `oss-latest-linux.yml` before submission.
 
 The COPR project repository is available from: https://copr.fedorainfracloud.org/coprs/anudeepd/bitwarden
 
@@ -77,7 +77,7 @@ Everything else follows the guidelines:
   auto-generated require made the package uninstallable). No network access
   inside the buildroot.
 - The downloaded RPM is verified against the sha512 published for that
-  asset in the upstream release's `latest-linux.yml` before submission to
+  asset in the upstream release's `oss-latest-linux.yml` before submission to
   COPR. Note this is same-origin integrity (guards corruption/mismatch, not
   a signing boundary): upstream publishes no detached checksums or
   signatures for the RPM.
@@ -86,7 +86,7 @@ Everything else follows the guidelines:
 
 - **Third-party rewrap.** This is a COPR project, not an official Bitwarden
   or Fedora build. CI verifies the downloaded upstream RPM against the
-  SHA512 published in the upstream release's `latest-linux.yml` before
+  SHA512 published in the upstream release's `oss-latest-linux.yml` before
   submission, and COPR signs the built package, but the trust root is this
   COPR project.
 - **Repository metadata is not signed.** COPR does not publish
